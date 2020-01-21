@@ -64,8 +64,8 @@ def process_counts(dirpath):
         cus_with_times = create_times(lemmas, cus)
         file_count_dicts.append(get_file_counts(filepath, lemmas))
         cu_count_dicts += get_counts(filepath, cus_with_times)
-    write_to_csv(cu_count_dicts, cu_count_fieldnames, '/Users/abigailhodge/PycharmProjects/improve-exmaralda/cu_counts.csv')
-    write_to_csv(file_count_dicts, file_count_fieldnames, '/Users/abigailhodge/PycharmProjects/improve-exmaralda/file_counts.csv')
+    write_to_csv(cu_count_dicts, cu_count_fieldnames, '/Users/abigailhodge/enhance-exmaralda/cu-counts.csv')
+    write_to_csv(file_count_dicts, file_count_fieldnames, '/Users/abigailhodge/enhance-exmaralda/file-counts.csv')
 
 
 # extracts normalized tokens, lemmas, pos tags, and cus from ExMARALDA lines
@@ -79,60 +79,128 @@ def extract_norm_cu(lines):
     in_norm_tier = False
     in_lemma_tier = False
     in_pos_tier = False
+    time_order_determined = False
+    time_order_normal = True
     for line in lines:
+        if not time_order_determined:
+            info_normal = re.match("<event start=\"T([0-9]+)\" end=\"T([0-9]+)\"", line)
+            info_reverse = re.match("<event end=\"T([0-9]+)\" start=\"T([0-9]+)\"", line)
+            if info_normal:
+                time_order_determined = True
+            elif info_reverse:
+                time_order_determined = True
+                time_order_normal = False
         if in_cu_tier:
-            info = re.match("<event start=\"T([0-9]+)\" end=\"T([0-9]+)\"", line)
+            if time_order_normal:
+                info = re.match("<event start=\"T([0-9]+)\" end=\"T([0-9]+)\"", line)
+                if info:
+                    start, end = info.groups()
+            else:
+                info = re.match("<event end=\"T([0-9]+)\" start=\"T([0-9]+)\"", line)
+                if info:
+                    end, start = info.groups()
             if info:
-                start, end = info.groups()
                 cus.append([int(start), int(end)])
             else:
                 in_cu_tier = False
         if in_norm_tier:
-            info = re.match("<event start=\"T([0-9]+)\" end=\"T([0-9]+)\">(.*)<", line)
+            if time_order_normal:
+                info = re.match("<event start=\"T([0-9]+)\" end=\"T([0-9]+)\">(.*)<", line)
+                if info:
+                    groups = info.groups()
+                    norm = [int(groups[0]), int(groups[1]), groups[2].strip()]
+            else:
+                info = re.match("<event end=\"T([0-9]+)\" start=\"T([0-9]+)\">(.*)<", line)
+                if info:
+                    groups = info.groups()
+                    norm = [int(groups[1]), int(groups[0]), groups[2].strip()]
             if info:
-                groups = info.groups()
-                norms.append([int(groups[0]), int(groups[1]), groups[2].strip()])
+                norms.append(norm)
             else:
                 in_norm_tier = False
         if in_lemma_tier:
-            info = re.match("<event start=\"T([0-9]+)\" end=\"T([0-9]+)\">(.*)<", line)
-            if info:
-                groups = info.groups()
-                lemmas.append([int(groups[0]), int(groups[1]), groups[2].strip()])
+            if time_order_normal:
+                info = re.match("<event start=\"T([0-9]+)\" end=\"T([0-9]+)\">(.*)<", line)
+                if info:
+                    groups = info.groups()
+                    lemma = [int(groups[0]), int(groups[1]), groups[2].strip()]
             else:
-                in_norm_tier = False
-        if in_pos_tier:
-            info = re.match("<event start=\"T([0-9]+)\" end=\"T([0-9]+)\">(.*)<", line)
+                info = re.match("<event end=\"T([0-9]+)\" start=\"T([0-9]+)\">(.*)<", line)
+                if info:
+                    groups = info.groups()
+                    lemma = [int(groups[1]), int(groups[0]), groups[2].strip()]
             if info:
-                groups = info.groups()
-                pos_tags.append([int(groups[0]), int(groups[1]), groups[2]])
+                lemmas.append(lemma)
+            else:
+                in_lemma_tier = False
+        if in_pos_tier:
+            if time_order_normal:
+                info = re.match("<event start=\"T([0-9]+)\" end=\"T([0-9]+)\">(.*)<", line)
+                if info:
+                    groups = info.groups()
+                    pos_tag = [int(groups[0]), int(groups[1]), groups[2]]
+            else:
+                info = re.match("<event end=\"T([0-9]+)\" start=\"T([0-9]+)\">(.*)<", line)
+                if info:
+                    groups = info.groups()
+                    pos_tag = [int(groups[1]), int(groups[0]), groups[2]]
+            if info:
+                pos_tags.append(pos_tag)
             else:
                 in_pos_tier = False
 
-        if re.search("category=\"cu\"", line):
-            info = re.search("<event start=\"T([0-9]+)\" end=\"T([0-9]+)\"", line)
-            if info:
-                start, end = info.groups()
-                cus.append([int(start), int(end)])
-            in_cu_tier = True
+        if re.search("display-name=\"norm \[CU\]\"", line, re.IGNORECASE):
+            if time_order_normal:
+                info = re.search("<event start=\"T([0-9]+)\" end=\"T([0-9]+)\"", line)
+                if info:
+                    start, end = info.groups()
+                    cus.append([int(start), int(end)])
+                    in_cu_tier = True
+            else:
+                info = re.search("<event end=\"T([0-9]+)\" start=\"T([0-9]+)\"", line)
+                if info:
+                    end, start = info.groups()
+                    cus.append([int(start), int(end)])
+                    in_cu_tier = True
         if re.search("category=\"norm\"", line):
-            info = re.search("<event start=\"T([0-9]+)\" end=\"T([0-9]+)\">(.*)<", line)
-            if info:
-                groups = info.groups()
-                norms.append([int(groups[0]), int(groups[1]), groups[2].strip()])
-            in_norm_tier = True
+            if time_order_normal:
+                info = re.search("<event start=\"T([0-9]+)\" end=\"T([0-9]+)\">(.*)<", line)
+                if info:
+                    groups = info.groups()
+                    norms.append([int(groups[0]), int(groups[1]), groups[2].strip()])
+                    in_norm_tier = True
+            else:
+                info = re.search("<event end=\"T([0-9]+)\" start=\"T([0-9]+)\">(.*)<", line)
+                if info:
+                    groups = info.groups()
+                    norms.append([int(groups[1]), int(groups[0]), groups[2].strip()])
+                    in_norm_tier = True
         if re.search("category=\"lemma\"", line):
-            info = re.search("<event start=\"T([0-9]+)\" end=\"T([0-9]+)\">(.*)<", line)
-            if info:
-                groups = info.groups()
-                lemmas.append([int(groups[0]), int(groups[1]), groups[2].strip()])
-            in_lemma_tier = True
+            if time_order_normal:
+                info = re.search("<event start=\"T([0-9]+)\" end=\"T([0-9]+)\">(.*)<", line)
+                if info:
+                    groups = info.groups()
+                    lemmas.append([int(groups[0]), int(groups[1]), groups[2].strip()])
+                    in_lemma_tier = True
+            else:
+                info = re.search("<event end=\"T([0-9]+)\" start=\"T([0-9]+)\">(.*)<", line)
+                if info:
+                    groups = info.groups()
+                    lemmas.append([int(groups[1]), int(groups[0]), groups[2].strip()])
+                    in_lemma_tier = True
         if re.search("category=\"pos_lang\"", line):
-            info = re.search("<event start=\"T([0-9]+)\" end=\"T([0-9]+)\">(.*)<", line)
-            if info:
-                groups = info.groups()
-                pos_tags.append([int(groups[0]), int(groups[1]), groups[2]])
-            in_pos_tier = True
+            if time_order_normal:
+                info = re.search("<event start=\"T([0-9]+)\" end=\"T([0-9]+)\">(.*)<", line)
+                if info:
+                    groups = info.groups()
+                    pos_tags.append([int(groups[0]), int(groups[1]), groups[2]])
+                in_pos_tier = True
+            else:
+                info = re.search("<event end=\"T([0-9]+)\" start=\"T([0-9]+)\">(.*)<", line)
+                if info:
+                    groups = info.groups()
+                    pos_tags.append([int(groups[1]), int(groups[0]), groups[2]])
+                in_pos_tier = True
     return norms, lemmas, cus, pos_tags
 
 
