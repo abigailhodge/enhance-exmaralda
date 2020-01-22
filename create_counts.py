@@ -149,7 +149,7 @@ def extract_norm_cu(lines):
             else:
                 in_pos_tier = False
 
-        if re.search("display-name=\"norm \[CU\]\"", line, re.IGNORECASE):
+        if re.search("display-name=\"dipl \[CU\]\"", line, re.IGNORECASE):
             if time_order_normal:
                 info = re.search("<event start=\"T([0-9]+)\" end=\"T([0-9]+)\"", line)
                 if info:
@@ -333,6 +333,7 @@ def get_zero_articles(norms, cus, pos_tags, filepath):
 
 # gets # words, # unique words, and type-token ratio for each cu in the given cu list
 def get_counts(filepath, cus):
+    print(filepath, len(cus))
     count_dicts = []
     speaker_type, speaker_lang, speaker_gender, mode, register = extract_metadata(filepath)
     for cu in cus:
